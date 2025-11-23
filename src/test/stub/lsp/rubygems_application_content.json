@@ -1,0 +1,34 @@
+[
+    {
+        "line": 106,
+        "character": 2,
+        "functionName": "find_rubygem",
+        "firstLine": "  def find_rubygem",
+        "functionContent": "  def find_rubygem\n    @rubygem = Rubygem.find_by_name(params[:rubygem_id] || params[:id])\n    return if @rubygem\n    respond_to do |format|\n      format.any do\n        render plain: t(:this_rubygem_could_not_be_found), status: :not_found\n      end\n      format.html do\n        render file: Rails.public_path.join(\"404.html\"), status: :not_found, layout: false, formats: [:html]\n      end\n    end\n  end"
+    },
+    {
+        "line": 123,
+        "character": 2,
+        "functionName": "set_page",
+        "firstLine": "  def set_page(max_page = Gemcutter::MAX_PAGES)",
+        "functionContent": "  def set_page(max_page = Gemcutter::MAX_PAGES)\n    sanitize_params\n    @page = Gemcutter::DEFAULT_PAGE && return unless params.key?(:page)\n    redirect_to_page_with_error && return unless valid_page_param?(max_page)\n\n    @page = params[:page].to_i\n  end"
+    },
+    {
+        "line": 199,
+        "character": 2,
+        "queryLine": 19,
+        "queryCharacter": 17,
+        "functionName": "set_error_context_user",
+        "firstLine": "  def set_error_context_user",
+        "functionContent": "  def set_error_context_user\n    return unless current_user\n\n    Rails.error.set_context(\n      user_id: current_user.id,\n      user_email: current_user.email\n    )\n  end"
+    },
+    {
+        "line": 85,
+        "character": 2,
+        "queryLine": 82,
+        "queryCharacter": 4,
+        "functionName": "fastly_expires_in",
+        "firstLine": "  def fastly_expires_in(seconds, stale_while_revalidate: seconds / 2, stale_if_error: seconds / 2)",
+        "functionContent": "  def fastly_expires_in(seconds, stale_while_revalidate: seconds / 2, stale_if_error: seconds / 2)\n    response.headers[\"Surrogate-Control\"] = {\n      \"max-age\" => seconds,\n      \"stale-while-revalidate\" => stale_while_revalidate,\n      \"stale-if-error\" => stale_if_error\n    }.compact.map { |k, v| \"#{k}=#{v}\" }.join(\", \")\n  end"
+    }
+]

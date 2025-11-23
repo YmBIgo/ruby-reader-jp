@@ -134,11 +134,9 @@ export async function getFileLineAndCharacterFromFunctionName(
     console.error(e);
     return [-1, -1];
   }
-  const codeLineRegexp = functionName === codeLine
-  ?
-    new RegExp(`\\s${escapeRegExp(codeLine)}[\\s\\(\\)\\{\\|\.]{1}`, "g")
-  : 
-    null;
+  const codeLineRegexp = codeLine === functionName
+    ? new RegExp(`\\s${escapeRegExp(codeLine)}[\\s\\(\\)\\{\\|\.]{1}`, "g") // isFirst
+    : new RegExp(`${escapeRegExp(functionName)}`) // !isFirst
   const functionNameRegexp = new RegExp(`(\\s|::|\.){1}${escapeRegExp(functionName)}[\\s\\(\\)\\{\\|\.]{1}`, "g");
   const defClassFunctionRegexp = new RegExp(`\\s(def|class)\\s+${escapeRegExp(functionName)}`, "g");
   let dotAccessFunction = functionName.split(".");
@@ -204,17 +202,22 @@ export async function getFileLineAndCharacterFromFunctionName(
       continue;
     }
     const defOrClassMatched = row.search(defClassFunctionRegexp);
+    let functionIndexAdd = 0;
     if (!isFirst) {
       if (defOrClassMatched !== -1) {
         console.log("def class found... : ", row);
         continue;
       }
-    // isFirst
-    } else {
-      if (defOrClassMatched !== -1) {
-        return [index, defOrClassMatched];
-      }
-      continue;
+    } else if (isFirst) {
+      // def, classの後は必ず１文字空白しか入らない前提
+      const defineIncludesIndex = row.search(/\sdef /g);
+      const classIncludesIndex = row.search(/\sclass /g);
+      const includeIndex = defineIncludesIndex !== -1
+        ? defineIncludesIndex // rowに\nをつけてしまっているため
+        : classIncludesIndex !== -1
+        ? classIncludesIndex // rowに\nをつけてしまっているため
+        : -1;
+      functionIndexAdd = includeIndex;
     }
     // |possibility| のスコープ内を飛ばす処理
     if (isArrowFuncScope) {
@@ -251,12 +254,10 @@ export async function getFileLineAndCharacterFromFunctionName(
       arrowFuncScopeEndCount = 1;
       continue;
     }
-    let functionIndex = !codeLineRegexp
-    ? row === codeLine
-    : row.search(codeLineRegexp);
-    if (dotAccessFunction.length > 1 && functionIndex !== -1) {
+    let functionIndex = row.search(codeLineRegexp);
+    if (dotAccessFunction.length > 1 && !isFirst && functionIndex !== -1) {
       functionIndex = row.search(dotAccessFunctionRegexp);
-    } else if (memberAccessFunction.length > 1 && functionIndex !== -1 && memberAccessFunctionRegexp) {
+    } else if (memberAccessFunction.length > 1 && !isFirst && functionIndex !== -1 && memberAccessFunctionRegexp) {
       functionIndex = row.search(memberAccessFunctionRegexp);
     } else if (functionIndex !== -1) {
       const literalMatch = row.match(literalFunctionNameRegexp);
@@ -277,7 +278,11 @@ export async function getFileLineAndCharacterFromFunctionName(
       }
     }
     if (functionIndex !== -1) {
-      return [index, functionIndex];
+      return isFirst && functionIndexAdd
+      ?
+        [index, functionIndexAdd + functionIndex]
+      :
+        [index, functionIndex];
     }
   }
   return [-1, -1];
