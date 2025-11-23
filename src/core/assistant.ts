@@ -180,7 +180,7 @@ export class RubyReader {
         });
     } else {
       client = new RubyLanguageClient(
-        `Ruby Reader`,
+        `RubyReaderJP`,
         serverOptions,
         clientOptions
       );
@@ -1044,7 +1044,12 @@ ${description.ask ? description.ask : "not provided..."}
         return ["", 0, 0, item];
       }
     }
-    const firstItem = item[0];
+    console.log(item);
+    const firstItem = item.filter((i) => i.targetUri?.includes(this.rootPath))?.[0];
+    if (!firstItem) {
+      // codes are outside the main codebase.
+      return ["", 0, 0, []]
+    }
     const file = isReference ? firstItem.uri : firstItem.targetUri;
     await client?.sendNotification("textDocument/didClose", {
       textDocument: {
