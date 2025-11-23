@@ -41,3 +41,13 @@ ruby-lspのパス、Rubyプロジェクトのルートパス、compile_commands.
 
 7. 探索を制御
 探索に成功すると、
+
+## Release Notes
+
+#### 1.0.2
+
+fix multi choice bug
+
+#### 1.0.1
+
+Initial release of RubyReader-jp

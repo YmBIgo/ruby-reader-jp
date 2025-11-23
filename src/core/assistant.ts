@@ -1045,10 +1045,13 @@ ${description.ask ? description.ask : "not provided..."}
       }
     }
     console.log(item);
-    const firstItem = item.filter((i) => i.targetUri?.includes(this.rootPath))?.[0];
+    let firstItem = item.filter((i) => {
+      const isUri = isReference ? i.uri?.includes(this.rootPath) : i.targetUri?.includes(this.rootPath);
+      return isUri
+    })?.[0];
     if (!firstItem) {
       // codes are outside the main codebase.
-      return ["", 0, 0, []]
+      firstItem =item[0];
     }
     const file = isReference ? firstItem.uri : firstItem.targetUri;
     await client?.sendNotification("textDocument/didClose", {
