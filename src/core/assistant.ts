@@ -27,7 +27,8 @@ import {
   reportPromopt,
   searchFolderSystemPrompt,
   searchSymbolSystemPrompt,
-} from "./prompt";
+  stepPrompt
+} from "./prompt/index_ja";
 import pWaitFor from "p-wait-for";
 import { is7wordString } from "./util/number";
 import { DocumentSymbol, SymbolInformation } from "vscode-languageclient/node";
@@ -126,20 +127,20 @@ export class RubyReader {
       llmName === "openai"
         ? openAIModel
         : llmName === "anthropic"
-        ? anthropicModel
-        : llmName === "gemini"
-        ? geminiModel
-        : "";
+          ? anthropicModel
+          : llmName === "gemini"
+            ? geminiModel
+            : "";
     const apiKey =
       llmName === "openai"
         ? openAIApiKey
         : llmName === "anthropic"
-        ? anthropicApiKey
-        : llmName === "plamo"
-        ? plamoApiKey
-        : llmName === "gemini"
-        ? geminiApiKey
-        : "unknown llm name";
+          ? anthropicApiKey
+          : llmName === "plamo"
+            ? plamoApiKey
+            : llmName === "gemini"
+              ? geminiApiKey
+              : "unknown llm name";
     this.apiHandler = buildLLMHanlder(llmName, modelType, apiKey);
     this.saveReportFolder = reportPath;
     if (!rubyLspPath || !rubyProjectPath) {
@@ -202,17 +203,17 @@ export class RubyReader {
     this.saySocket("This operation usually takes 2 ~ 5minutes");
     const pickResults = await pickFunctions(searchFolderPath);
     const flattenPickResults = pickResults
-    .reduce((a, b) => {
-      a.push(b[2])
+      .reduce((a, b) => {
+        a.push(b[2])
         return a
-    }, [] as string[][])
+      }, [] as string[][])
     const filteredPickResults = flattenPickResults
       .map((r) => {
         if (!r) return null
         return r.map((rc) => rc.replace(searchFolderPath, ""));
-    })
-    .filter(Boolean)
-    .join("\n");
+      })
+      .filter(Boolean)
+      .join("\n");
     const searchFolderPrompt = `[purpose]
 ${purpose}
 [filePaths]
@@ -248,7 +249,7 @@ ${filteredPickResults}
       folderFileNameResult = [...folderFileNameResult, ...symbolResult]
     }
     folderFileNameResult = folderFileNameResult.map((f, index) => {
-      return {...f, id: index}
+      return { ...f, id: index }
     });
     const filteredPickFunctions = folderFileNameResult.map((f) => {
       return `id: ${f.id} / name: ${f.name} / kind: ${f.kind} / path: ${f.path.replace(searchFolderPath, "")} / parent: ${f.parent}`
@@ -334,7 +335,7 @@ ${filteredPickFunctions}
       );
     if (currentLine === -1 && currentCharacter === -1) {
       this.sendErrorSocket(
-        `Can not find content below. ${currentFunctionName} @ ${currentFilePath}...`
+        `以下の内容は見つかりませんでした ${currentFunctionName} @ ${currentFilePath}...`
       );
     }
     const functionCodeContent = await getFunctionContentFromLineAndCharacter(currentFilePath, currentLine, currentCharacter);
@@ -352,13 +353,13 @@ ${filteredPickFunctions}
     if (historyTree) {
       this.saySocket(historyTree);
     }
-    const question = "Input hash value of past history which you want to search from.";
+    const question = "過去の履歴の中から検索したいハッシュ値を入力してください。";
     const result = await this.askSocket(question);
     if (is7wordString(result.ask)) {
       await this.runIntercativeHistoryPoint(result.ask);
       return;
     }
-    this.sendErrorSocket("Can not find hash value. Please try again.");
+    this.sendErrorSocket("ハッシュ値が見つかりませんでした。再度閉じて再試行してください");
   }
 
   async runFirstTask(
@@ -377,7 +378,7 @@ ${filteredPickFunctions}
       );
     if (currentLine === -1 && currentCharacter === -1) {
       this.sendErrorSocket(
-        `Can not find content of ${currentFunctionName} @ ${currentFilePath}...`
+        `以下の内容は見つかりませんでした ${currentFunctionName} @ ${currentFilePath}...`
       );
     }
     const functionCodeContent = await getFunctionContentFromLineAndCharacter(
@@ -413,13 +414,50 @@ ${filteredPickFunctions}
     } catch (e) {
       console.error(e);
       this.sendErrorSocket(
-        `Can not find content of ${currentFilePath}@${currentLine}:${currentCharacter}`
+        `以下の内容は見つかりませんでした ${currentFilePath}@${currentLine}:${currentCharacter}`
       );
       return;
     }
     this.runTask(currentFilePath, functionContent);
   }
   private async runTask(currentFilePath: string, functionContent: string) {
+    this.saySocket("まずは関数の動作ステップを解析します...");
+    const userStepPrompt = `
+\`\`\`code
+${functionContent}
+\`\`\``;
+    const stepHistory: Anthropic.Messages.MessageParam[] = [
+      { role: "user", content: userStepPrompt },
+    ];
+    let stepResponseJson;
+    try {
+      const response = (await this.apiHandler?.createMessage(
+        stepPrompt,
+        stepHistory,
+        true
+      )) ?? "{}"
+      stepResponseJson = JSON.parse(response);
+    } catch (e) {
+      console.error(e);
+      this.sendErrorSocket(`APIエラー`);
+      this.saveChoiceTree();
+      return;
+    }
+    if (!Array.isArray(stepResponseJson)) {
+      console.error("respond JSON format is not Array...");
+      this.sendErrorSocket(`返ってきた情報が間違っています...`);
+      this.saveChoiceTree();
+      return;
+    }
+    let stepDetails: string = "以下が関数の動作ステップです。\n----------------------------\n";
+    let stepActions: string = "";
+    stepResponseJson.forEach((s) => {
+      if (!s) return;
+      stepDetails += `${s.step} : ${s.action}\n${s.details}\n\n`;
+      stepActions += `${s.step}\n${s.action}\n\n`
+    });
+    this.saySocket(`${stepDetails}`);
+    this.saySocket("次にジャンプする関数候補を出します...");
     const userPrompt = `
 \`\`\`purpose
 ${this.purpose}
@@ -427,6 +465,10 @@ ${this.purpose}
 
 \`\`\`code
 ${functionContent}
+\`\`\`
+
+\`\`\`steps
+${stepActions}
 \`\`\``;
     console.log(userPrompt);
     const history: Anthropic.Messages.MessageParam[] = [
@@ -443,13 +485,13 @@ ${functionContent}
       responseJSON = JSON.parse(response);
     } catch (e) {
       console.error(e);
-      this.sendErrorSocket(`API Error`);
+      this.sendErrorSocket(`APIエラー`);
       this.saveChoiceTree();
       return;
     }
     if (!Array.isArray(responseJSON)) {
       console.error("respond JSON format is not Array...");
-      this.sendErrorSocket(`Returned information is wrong...`);
+      this.sendErrorSocket(`返ってきた情報が間違っています...`);
       this.saveChoiceTree();
       return;
     }
@@ -470,103 +512,113 @@ ${functionContent}
           }
           return false;
         }) ??
-        fileContentArray.find((fcr) => {
-          const spaceRemovedRow = fcr.replace(/ /g, "").replace(/\t/g, "");
-          let commentStartIndex: number = -1;
-          let commentEndIndex: number = -1;
-          const longCommentStart = spaceRemovedRow.matchAll(/\/\*/g);
-          const longCommentEnd = spaceRemovedRow.matchAll(/\*\//g);
-          for (const start_m of longCommentStart) {
-            commentStartIndex = start_m.index;
-            // 最初で破棄
-            break;
-          }
-          for (const end_m of longCommentEnd) {
-            // 最後まで読む
-            commentEndIndex = end_m.index;
-          }
-          if (
-            commentStartIndex !== -1 &&
-            commentEndIndex !== -1 &&
-            commentStartIndex < commentEndIndex
-          ) {
-            // 1行のコメントなのでskip
-          } else if (isLongComment && commentEndIndex !== -1) {
-            // 一旦複雑なケースは考慮しない（コメントの中でのコメント定義など）
-            isLongComment = false;
-          } else if (!isLongComment && commentStartIndex !== -1) {
-            isLongComment = true;
-          }
-          if (isLongComment) {
-            return;
-          }
-          if (spaceRemovedRow.startsWith("//")) {
-            return;
-          }
-        }) ??
-        each_r.code_line.includes(each_r["name"])
+          fileContentArray.find((fcr) => {
+            const spaceRemovedRow = fcr.replace(/ /g, "").replace(/\t/g, "");
+            let commentStartIndex: number = -1;
+            let commentEndIndex: number = -1;
+            const longCommentStart = spaceRemovedRow.matchAll(/\/\*/g);
+            const longCommentEnd = spaceRemovedRow.matchAll(/\*\//g);
+            for (const start_m of longCommentStart) {
+              commentStartIndex = start_m.index;
+              // 最初で破棄
+              break;
+            }
+            for (const end_m of longCommentEnd) {
+              // 最後まで読む
+              commentEndIndex = end_m.index;
+            }
+            if (
+              commentStartIndex !== -1 &&
+              commentEndIndex !== -1 &&
+              commentStartIndex < commentEndIndex
+            ) {
+              // 1行のコメントなのでskip
+            } else if (isLongComment && commentEndIndex !== -1) {
+              // 一旦複雑なケースは考慮しない（コメントの中でのコメント定義など）
+              isLongComment = false;
+            } else if (!isLongComment && commentStartIndex !== -1) {
+              isLongComment = true;
+            }
+            if (isLongComment) {
+              return;
+            }
+            if (spaceRemovedRow.startsWith("//")) {
+              return;
+            }
+          }) ??
+          each_r.code_line.includes(each_r["name"])
           ? each_r.code_line
           : fileContentArray.find((fcr) => {
-              const spaceRemovedRow = fcr.replace(/ /g, "").replace(/\t/g, "");
-              if (spaceRemovedRow.startsWith("//")) {
-                return false;
-              }
-              let commentStartIndex: number = -1;
-              let commentEndIndex: number = -1;
-              const longCommentStart = spaceRemovedRow.matchAll(/\/\*/g);
-              const longCommentEnd = spaceRemovedRow.matchAll(/\*\//g);
-              for (const start_m of longCommentStart) {
-                commentStartIndex = start_m.index;
-                // 最初で破棄
-                break;
-              }
-              for (const end_m of longCommentEnd) {
-                // 最後まで読む
-                commentEndIndex = end_m.index;
-              }
-              if (
-                commentStartIndex !== -1 &&
-                commentEndIndex !== -1 &&
-                commentStartIndex < commentEndIndex
-              ) {
-                // 1行のコメントなのでskip
-              } else if (isLongComment2 && commentEndIndex !== -1) {
-                // 一旦複雑なケースは考慮しない（コメントの中でのコメント定義など）
-                isLongComment2 = false;
-              } else if (!isLongComment && commentStartIndex !== -1) {
-                isLongComment2 = true;
-              }
-              if (isLongComment2) {
-                return false;
-              }
-              return fcr.includes(each_r["name"]);
-            }) ?? each_r["name"];
+            const spaceRemovedRow = fcr.replace(/ /g, "").replace(/\t/g, "");
+            if (spaceRemovedRow.startsWith("//")) {
+              return false;
+            }
+            let commentStartIndex: number = -1;
+            let commentEndIndex: number = -1;
+            const longCommentStart = spaceRemovedRow.matchAll(/\/\*/g);
+            const longCommentEnd = spaceRemovedRow.matchAll(/\*\//g);
+            for (const start_m of longCommentStart) {
+              commentStartIndex = start_m.index;
+              // 最初で破棄
+              break;
+            }
+            for (const end_m of longCommentEnd) {
+              // 最後まで読む
+              commentEndIndex = end_m.index;
+            }
+            if (
+              commentStartIndex !== -1 &&
+              commentEndIndex !== -1 &&
+              commentStartIndex < commentEndIndex
+            ) {
+              // 1行のコメントなのでskip
+            } else if (isLongComment2 && commentEndIndex !== -1) {
+              // 一旦複雑なケースは考慮しない（コメントの中でのコメント定義など）
+              isLongComment2 = false;
+            } else if (!isLongComment && commentStartIndex !== -1) {
+              isLongComment2 = true;
+            }
+            if (isLongComment2) {
+              return false;
+            }
+            return fcr.includes(each_r["name"]);
+          }) ?? each_r["name"];
       parsedContentCodeLineArray.push(fileCodeLine);
       askQuestion += `${index} : ${each_r.name}\n`;
       askQuestion += `Details : ${each_r.description}\n`;
       askQuestion += `Whole Code Line : ${fileCodeLine}\n`;
       askQuestion += `Original Code : ${each_r.code_line}\n`;
       askQuestion += `Confidence : ${each_r.score}\n`;
+      if (!isNaN(Number(each_r.step)) && stepResponseJson[Number(each_r.step - 1)]) {
+        askQuestion += `Step : ${each_r.step} ${stepResponseJson[Number(each_r.step - 1)].action}\n`;
+      }
       askQuestion += `----------------------------\n`;
       newHistoryChoices.push({
         functionName: each_r.name,
         functionCodeLine: fileCodeLine,
         originalFilePath: currentFilePath,
+        comment: each_r.score + " | " + each_r.description,
       });
     });
     let resultNumber = 0;
     let result: AskResponse | null = null;
+    const oldPosition = this.historyHanlder?.getCurrentChoicePosition();
+    this.historyHanlder?.addHistory(newHistoryChoices);
+    if (oldPosition && oldPosition.length) {
+      this.historyHanlder?.move(oldPosition);
+    }
     this.saySocket(`${askQuestion}`);
     for (; ;) {
-      result = await this.askSocket(`Please enter the index you want to display:
-- Enter 5 to retry
-- Enter 6 to display the history as a tree structure
-- Enter 7 to generate an exploration report
-- Enter 8 to display the current file
-- Enter 9 to generate a Mermaid diagram of the current function
-- Enter 10 to detect potential bugs
-- Enter 11 to save the history so far as JSON
-※ If you enter a string, it will be interpreted as a hash value to search the past history.`);
+      result = await this.askSocket(`
+表示したい詳細のインデックス（0〜4）を入力してください。
+  - 5 を入力すると再試行できます
+  - 6 を入力すると履歴を木構造で表示します
+  - 7 を入力すると探索レポートを生成します
+  - 8 を入力すると現在のファイルを表示します
+  - 9 を入力すると現在の関数のマーメイド図を生成します
+  - 10 を入力すると疑わしいバグを検出します
+  - 11 を入力するとここまでの履歴をJSONで保存します
+※ 文字列を入力すると、過去の履歴を検索するハッシュ値として認識されます`);
       console.log(`result : ${result.ask}`);
       resultNumber = Number(result.ask);
       const newMessages = this.addMessages(`User Enter ${result.ask}`, "user");
@@ -608,6 +660,11 @@ ${functionContent}
       }
     }
     if (is7wordString(result.ask)) {
+      const isHistoryInteractive = await this.askSocket("最初から順番に再現したい場合はyesを、該当箇所のみ見たい場合は任意の文字を入力してください");
+      if (isHistoryInteractive.ask === "yes") {
+        await this.runIntercativeHistoryPoint(result.ask);
+        return;
+      }
       await this.runHistoryPoint(result.ask);
       return;
     }
@@ -617,22 +674,23 @@ ${functionContent}
     }
     if (!responseJSON[resultNumber]) {
       this.sendErrorSocket(
-        `Your choice "${resultNumber}" is not valid choice`
+        `あなたの選択肢 ${resultNumber} は正しい選択肢ではありません`
       );
       return;
     }
     this.historyHanlder?.addHistory(newHistoryChoices);
     this.saySocket(
-      `Ruby-LSP is searching "${responseJSON[resultNumber].name}"`
+      `Ruby-Lspは "${responseJSON[resultNumber].name}" を検索しています`
     );
     const [searchLine, searchCharacter] =
       await getFileLineAndCharacterFromFunctionName(
         currentFilePath,
         responseJSON[resultNumber].code_line,
         responseJSON[resultNumber].name,
+        false,
       );
     if (searchLine === -1 && searchCharacter === -1) {
-      this.sendErrorSocket(`Failed while searching files.`);
+      this.sendErrorSocket(`ファイルの内容の検索中に失敗しました`);
       this.saveChoiceTree();
       return;
     }
@@ -649,17 +707,19 @@ ${functionContent}
         const newHc = hc;
         newHc.originalFilePath = removeFilePrefixFromFilePath(newFile);
         return newHc;
-      } 
+      }
       return hc
-    });
-    const comment = await this.askSocket("If you have any comments write it down.\nIf you have no comment please just write 'no comment'.");
-    const newMessages = this.addMessages(`User Enter ${comment.ask}`, "user");
-    this.sendState(newMessages);
+    })
+    // historyのパスは検索後に確定する
     this.historyHanlder?.addHistory(newHistoryChoices);
     this.jumpToCode(removeFilePrefixFromFilePath(newFile), newFunctionContent);
-    this.historyHanlder?.choose(resultNumber, newFunctionContent, comment.ask);
+    this.historyHanlder?.choose(
+      resultNumber,
+      newFunctionContent,
+      responseJSON[resultNumber].score + " | " + responseJSON[resultNumber].description
+    );
     this.saySocket(
-      `LLM is searching ${newFile}@${newLine}:${newCharacter}.`
+      `LLMは ${newFile}@${newLine}:${newCharacter} を検索しています`
     );
     this.runTask(removeFilePrefixFromFilePath(newFile), newFunctionContent);
   }
@@ -702,22 +762,26 @@ ${functionContent}
     const searchResult = this.historyHanlder?.searchTreeByIdPublic(historyHash);
     if (!searchResult) {
       this.sendErrorSocket(
-        `Can not find hash value of selected search history. ${historyHash}`
+        `hash値と一致する履歴が見つかりませんでした... ${historyHash}`
       );
       this.saveChoiceTree();
       return;
     }
     for (let i = 0; i < searchResult.pos.length; i++) {
+      if (searchResult.pos.length === i + 1) {
+        break;
+      }
       const pos = searchResult.pos.slice(0, i + 1);
       const currentRunConfig = this.historyHanlder?.getContentFromPos(pos);
       if (!currentRunConfig) {
-        this.saySocket(`Can not find content positioned at ${pos.length} ${pos[pos.length - 1].depth}:${pos[pos.length - 1].width}`);
+        this.saySocket(`以下のポジションにある内容が見つかりませんでした... ${pos.length} ${pos[pos.length - 1].depth}:${pos[pos.length - 1].width}`);
         continue;
       }
       const { functionCodeContent, functionCodeLine, functionName, originalFilePath, id } = currentRunConfig;
       let functionResult = functionCodeContent;
+      let filePath = originalFilePath;
       if (!functionCodeContent) {
-        const [line, character] = await getFileLineAndCharacterFromFunctionName(originalFilePath, functionCodeLine, functionName);
+        const [line, character] = await getFileLineAndCharacterFromFunctionName(originalFilePath, functionCodeLine, functionName, false);
         if (line === -1 && character === -1) {
           this.sendErrorSocket(
             `Can not find function of selected search history. ${historyHash}`
@@ -727,27 +791,33 @@ ${functionContent}
         }
         const [newFile, , , newFileContent] = await this.queryRubyLsp(originalFilePath, line, character);
         if (!newFile) {
-          console.error("Gopls fails to search file");
-          this.sendErrorSocket("Gopls fails to search file");
+          this.sendErrorSocket("Ruby-Lspはファイル検索に失敗しました");
           this.saveChoiceTree();
           return;
         }
         functionResult = newFileContent;
+        filePath = removeFilePrefixFromFilePath(newFile);
       }
-      const foundCallback = (st: ChoiceTree) => {
+      let comment: string = "";
+      const foundCallback = (st: ChoiceTree, comment2: string) => {
         st.content.functionCodeContent = functionResult ?? functionCodeLine;
+        if (st.content.comment) comment = comment2;
+        if (filePath !== originalFilePath) st.content.originalFilePath = filePath;
       }
       this.historyHanlder?.moveById(id.slice(0, 7), foundCallback);
       if (searchResult.pos.length === i + 1) {
         break;
       }
       if (functionResult) {
-        this.saySocket("Jump to the selected code ...")
-        this.jumpToCode(originalFilePath, functionResult);
+        this.saySocket("選択されたコードにジャンプします ...")
+        this.jumpToCode(filePath, functionResult);
+      }
+      if (comment) {
+        this.saySocket(comment);
       }
       let resultString = ""
-      for(;;) {
-        const result = await this.askSocket("Please Enter 1 when you want to jump to the next function.");
+      for (; ;) {
+        const result = await this.askSocket("もし次の関数にジャンプする場合は、1を入力してください");
         if (parseInt(result.ask) === 1) {
           resultString = "1"
           break;
@@ -763,15 +833,21 @@ ${functionContent}
     const newRunConfig = this.historyHanlder?.moveById(historyHash);
     if (!newRunConfig) {
       this.sendErrorSocket(
-        `Can not find hash value of selected search history. ${historyHash}`
+        `指定された検索履歴のhash値が見つかりませんでした ${historyHash}`
       );
       this.saveChoiceTree();
       return;
     }
     const { functionCodeContent, functionCodeLine, functionName, originalFilePath } = newRunConfig;
     let functionResult = functionCodeContent;
+    let filePath = originalFilePath;
     if (!functionCodeContent) {
-      const [line, character] = await getFileLineAndCharacterFromFunctionName(originalFilePath, functionCodeLine, functionName);
+      const [line, character] = await getFileLineAndCharacterFromFunctionName(
+        originalFilePath,
+        functionCodeLine,
+        functionName,
+        false,
+      );
       if (line === -1 && character === -1) {
         this.sendErrorSocket(
           `Can not find function of selected search history. ${historyHash}`
@@ -786,20 +862,25 @@ ${functionContent}
         this.saveChoiceTree();
         return;
       }
+      filePath = removeFilePrefixFromFilePath(newFile);
       functionResult = newFileContent;
     }
-    const foundCallback = (st: ChoiceTree) => {
+    let comment: string = "";
+    const foundCallback = (st: ChoiceTree, comment2: string) => {
       st.content.functionCodeContent = functionResult ?? functionCodeLine;
+      if (st.content.comment) comment = comment2;
+      if (filePath !== originalFilePath) st.content.originalFilePath = filePath;
     }
     this.historyHanlder?.moveById(historyHash, foundCallback);
-    if (functionResult) this.jumpToCode(originalFilePath, functionResult)
-    this.runTask(originalFilePath, functionResult ?? functionCodeLine);
+    if (comment) this.saySocket(comment);
+    await this.jumpToCode(filePath, functionResult ?? functionCodeLine);
+    this.runTask(filePath, functionResult ?? functionCodeLine);
   }
 
   private async getReport() {
     const r = this.historyHanlder?.traceFunctionContent();
     if (!r) {
-      this.sendErrorSocket(`Fail to get report.`);
+      this.sendErrorSocket(`レポート取得に失敗しました`);
       return;
     }
     const [result, functionResult] = r;
@@ -842,15 +923,15 @@ ${functionContent}
   }
   private async getBugsReport() {
     const description = await this.askSocket(
-      `Write any thought about potential bugs.（If you don't have ideas just enter "no"）`
+      `読んでいるコードと関連する怪しい挙動があるなら書いてください（無ければnoと書いてください）`
     );
     const r = this.historyHanlder?.traceFunctionContent();
     if (!r) {
-      this.sendErrorSocket(`Fail to get Bug Report.`);
+      this.sendErrorSocket(`バグレポート取得に失敗しました...`);
       return;
     }
     const [result, functionResult] = r;
-    this.saySocket(`Searching bugs related to "${functionResult}"`);
+    this.saySocket(`"${functionResult}"と関連するバグを探しています`);
     const userPrompt = `<functions or methods>
 ${result}
 <the potential bugs (optional)>
@@ -865,7 +946,7 @@ ${description.ask ? description.ask : "not provided..."}
     const fileName = `bugreport_${Date.now()}.txt`;
     await fs.writeFile(`${this.saveReportFolder}/${fileName}`, response + "\n\n" + result);
     this.saySocket(response);
-    this.saySocket(`Generate Bugs Report Done! File is created @${this.saveReportFolder}/${fileName}`);
+    this.saySocket(`バグレポートは以下の場所に保存されました @${this.saveReportFolder}/${fileName}`);
   }
   private async saveChoiceTree() {
     const choiceTreeWithAdditionalInfo = {
@@ -884,8 +965,34 @@ ${description.ask ? description.ask : "not provided..."}
       choiceTreeString
     );
     this.saySocket(
-      `Search history related to "${this.saveReportFolder}/${fileName}" is saved to your local path.`
+      `ここまでの調査履歴が "${this.saveReportFolder}/${fileName}" に保存されました`
     );
+  }
+
+  private async doQueryReferencesRubyLsp(
+    filePath: string,
+    line: number,
+    character: number
+  ): Promise<[string, any, boolean]> {
+    let itemString = "";
+    await client?.sendRequest("textDocument/references", {
+      textDocument: {
+        uri: addFilePrefixToFilePath(filePath)
+      },
+      position: { line, character }
+    })
+      .then((result) => {
+        console.log("reference result : ", result);
+        itemString = JSON.stringify(result);
+      });
+    try {
+      const item = JSON.parse(itemString as any);
+      return [itemString, item, true]
+    } catch (e) {
+      console.error(e);
+      this.saveChoiceTree();
+      return [itemString, [], false]
+    }
   }
 
   private async doQueryRubyLsp(
@@ -897,6 +1004,7 @@ ${description.ask ? description.ask : "not provided..."}
     console.log(line, character);
     let itemString: string = "";
     const fileContent = await fs.readFile(filePath, "utf-8");
+    let isReference = false;
     await pWaitFor(() => !!this.isRubyLspRunning(), {
       interval: 500,
     });
@@ -927,14 +1035,17 @@ ${description.ask ? description.ask : "not provided..."}
       item = JSON.parse(itemString as any);
     } catch (e) {
       console.error(e);
-      this.saveChoiceTree();
+      [itemString, item, isReference] = await this.doQueryReferencesRubyLsp(filePath, line, character)
     }
     if (!Array.isArray(item) || item.length <= 0) {
-      console.log("item not array", item);
-      return ["", 0, 0, item];
+      [itemString, item, isReference] = await this.doQueryReferencesRubyLsp(filePath, line, character)
+      if (!Array.isArray(item) || item.length <= 0) {
+        console.log("item not array", item);
+        return ["", 0, 0, item];
+      }
     }
     const firstItem = item[0];
-    const file = firstItem.targetUri;
+    const file = isReference ? firstItem.uri : firstItem.targetUri;
     await client?.sendNotification("textDocument/didClose", {
       textDocument: {
         uri: addFilePrefixToFilePath(filePath),
@@ -945,8 +1056,12 @@ ${description.ask ? description.ask : "not provided..."}
     });
     return [
       file,
-      firstItem.targetRange.start.line,
-      firstItem.targetRange.start.character,
+      isReference 
+      ? firstItem.range.start.line
+      : firstItem.targetRange.start.line,
+      isReference
+      ? firstItem.range.start.character
+      : firstItem.targetRange.start.character,
       item,
     ];
   }
@@ -973,7 +1088,7 @@ ${description.ask ? description.ask : "not provided..."}
 
   async doSymbolRubyLsp(
     filePath: string
-  ): Promise<{result: any; content: string}> {
+  ): Promise<{ result: any; content: string }> {
     const fileContent = await fs.readFile(filePath, "utf-8");
     await pWaitFor(() => !!this.isRubyLspRunning(), {
       interval: 500,
@@ -995,9 +1110,9 @@ ${description.ask ? description.ask : "not provided..."}
         },
       }
     )
-    .then((result) => {
-      itemString = JSON.stringify(result);
-    });
+      .then((result) => {
+        itemString = JSON.stringify(result);
+      });
     let item: any = [];
     try {
       item = JSON.parse(itemString as any);
@@ -1006,7 +1121,7 @@ ${description.ask ? description.ask : "not provided..."}
       this.saveChoiceTree();
     }
     if (!Array.isArray(item) || !item.length) {
-      return {result: [], content: fileContent}
+      return { result: [], content: fileContent }
     }
     await client?.sendNotification("textDocument/didClose", {
       textDocument: {
@@ -1016,23 +1131,23 @@ ${description.ask ? description.ask : "not provided..."}
         text: fileContent,
       },
     });
-    return {result: item, content: fileContent}
+    return { result: item, content: fileContent }
   }
 
   async symbolRubyLsp(filePath: string): Promise<Symbol[]> {
-    const {result, content} = await this.doSymbolRubyLsp(filePath);
+    const { result, content } = await this.doSymbolRubyLsp(filePath);
     if (!result || !content) return [];
     const fileNameArray = filePath.split("/")
     const splitContent = content.split("\n");
     let childrenOpenedResult: Array<SymbolInformation | DocumentSymbol> = result
-    function openChildren(children: Array<SymbolInformation | DocumentSymbol> ) {
+    function openChildren(children: Array<SymbolInformation | DocumentSymbol>) {
       childrenOpenedResult = [...childrenOpenedResult, ...children];
       children.forEach((c) => {
-        if (!isSymbolInformation(c) && c.children) openChildren(c.children); 
+        if (!isSymbolInformation(c) && c.children) openChildren(c.children);
       })
     }
     result.forEach((r: SymbolInformation | DocumentSymbol) => {
-      if (!isSymbolInformation(r) && r.children) openChildren(r.children); 
+      if (!isSymbolInformation(r) && r.children) openChildren(r.children);
     })
     const filtered_result = childrenOpenedResult?.filter((r: any) => {
       if (typeof r !== "object" || !r.kind) return false;
@@ -1076,12 +1191,12 @@ ${description.ask ? description.ask : "not provided..."}
     this.rootPath = "";
     this.rootLine = -1;
     this.rootCharacter = -1;
-    this.saySocket = () => {};
+    this.saySocket = () => { };
     this.askSocket = async (content: string) => {
       return {} as AskResponse;
     };
     this.messages = [];
-    this.sendState = () => {};
+    this.sendState = () => { };
     this.historyHanlder = null;
     this.apiHandler = buildLLMHanlder("openai", "gpt-5", "no key");
   }

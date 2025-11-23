@@ -119,6 +119,8 @@ export async function getFunctionContentFromLineAndCharacter(
   return "";
 }
 
+// isFirstの場合は、getFunctionContentFromLineAndCharacterに渡す
+// !isFirstの場合は、queryRubyLspに渡す
 export async function getFileLineAndCharacterFromFunctionName(
   filePath: string,
   codeLine: string,
@@ -132,7 +134,11 @@ export async function getFileLineAndCharacterFromFunctionName(
     console.error(e);
     return [-1, -1];
   }
-  const codeLineRegexp = new RegExp(`\\s${escapeRegExp(codeLine)}[\\s\\(\\)\\{\\|\.]{1}`, "g");
+  const codeLineRegexp = functionName === codeLine
+  ?
+    new RegExp(`\\s${escapeRegExp(codeLine)}[\\s\\(\\)\\{\\|\.]{1}`, "g")
+  : 
+    null;
   const functionNameRegexp = new RegExp(`(\\s|::|\.){1}${escapeRegExp(functionName)}[\\s\\(\\)\\{\\|\.]{1}`, "g");
   const defClassFunctionRegexp = new RegExp(`\\s(def|class)\\s+${escapeRegExp(functionName)}`, "g");
   let dotAccessFunction = functionName.split(".");
@@ -155,8 +161,14 @@ export async function getFileLineAndCharacterFromFunctionName(
       memberAccessFunctionRegexp = new RegExp(`${escapeRegExp(lastMemberAccessFunctionName)}[\\s\\(\\)\\{]{1}`, "g");
     }
   }
+  // "posibility and change" や 'possibliity or revolution' 的な「"」「'」対策
+  const literalFunctionNameRegexp = new RegExp(`(["']{1}.*${escapeRegExp(functionName)}.*["']{1})`);
+  // |possibility| 対策
+  const arrowFunctionNameRegexp = new RegExp(`[\\|]{1}${escapeRegExp(functionName)}[\\|]{1}`);
   const fileContentArray = fileContent.split("\n");
   let isLongComment = false;
+  let isArrowFuncScope = false;
+  let arrowFuncScopeEndCount = 0;
   for (let i in fileContentArray) {
     const index = isNaN(Number(i)) ? -1 : Number(i);
     const row = "\n" + fileContentArray[index] + "\n";
@@ -191,20 +203,78 @@ export async function getFileLineAndCharacterFromFunctionName(
     if (isLongComment) {
       continue;
     }
+    const defOrClassMatched = row.search(defClassFunctionRegexp);
     if (!isFirst) {
-      const defOrClassMatched = row.search(defClassFunctionRegexp);
       if (defOrClassMatched !== -1) {
         console.log("def class found... : ", row);
         continue;
       }
+    // isFirst
+    } else {
+      if (defOrClassMatched !== -1) {
+        return [index, defOrClassMatched];
+      }
+      continue;
     }
-    let functionIndex = row.search(codeLineRegexp);
+    // |possibility| のスコープ内を飛ばす処理
+    if (isArrowFuncScope) {
+      arrowFuncScopeEndCount += row.match(/\bdo\b\s*(\|[^\|]*\|)?/g)?.length ?? 0;
+      arrowFuncScopeEndCount += row.match(/^\s*def\s/g)?.length ?? 0;
+      const ifExistsCount = row.match(/^\s*if\s/g)?.length ?? 0;
+      const untilExistsCount = row.match(/^\s*until\s/g)?.length ?? 0;
+      const unlessExistsCount = row.match(/^\s*unless\s/g)?.length ?? 0;
+      const whileExistsCount = row.match(/^\s*while\s/g)?.length ?? 0
+      
+      const lambdaExistsCount = row.match(/^\s*lambda\s/g)?.length ?? 0;
+      const whenExistsCount = row.match(/^\s*case\s/g)?.length ?? 0;
+      const beginExistsCount = row.match(/^\s*begin(\s|$)/g)?.length ?? 0;
+      if (ifExistsCount > 0 || whileExistsCount > 0 || untilExistsCount > 0 || unlessExistsCount > 0 || lambdaExistsCount > 0 || whenExistsCount > 0 || beginExistsCount > 0) {
+        const isReturnExists = row.match(/[\s]*return/g);
+        if (!isReturnExists) {
+          arrowFuncScopeEndCount += ifExistsCount;
+          arrowFuncScopeEndCount += whileExistsCount;
+          arrowFuncScopeEndCount += untilExistsCount;
+          arrowFuncScopeEndCount += unlessExistsCount;
+          arrowFuncScopeEndCount += lambdaExistsCount;
+          arrowFuncScopeEndCount += whenExistsCount;
+          arrowFuncScopeEndCount += beginExistsCount;
+        }
+      }
+      const isArrowFuncScopeEnd = row.search(/end/g);
+      if (isArrowFuncScopeEnd) arrowFuncScopeEndCount -= 1;
+      if (arrowFuncScopeEndCount === 0) isArrowFuncScope = false;
+      continue;
+    }
+    const arrowFuncMatch = row.match(arrowFunctionNameRegexp);
+    if (arrowFuncMatch) {
+      isArrowFuncScope = true;
+      arrowFuncScopeEndCount = 1;
+      continue;
+    }
+    let functionIndex = !codeLineRegexp
+    ? row === codeLine
+    : row.search(codeLineRegexp);
     if (dotAccessFunction.length > 1 && functionIndex !== -1) {
       functionIndex = row.search(dotAccessFunctionRegexp);
     } else if (memberAccessFunction.length > 1 && functionIndex !== -1 && memberAccessFunctionRegexp) {
       functionIndex = row.search(memberAccessFunctionRegexp);
     } else if (functionIndex !== -1) {
+      const literalMatch = row.match(literalFunctionNameRegexp);
       functionIndex = row.search(functionNameRegexp);
+      if (literalMatch) {
+        const literalIndex = literalMatch.index ?? 100;
+        const literalEndIndex = literalIndex + literalMatch[0].length;
+        while(functionNameRegexp.exec(row) !== null) {
+          functionIndex = functionNameRegexp.lastIndex;
+          if (functionIndex >= literalIndex && functionIndex <= literalEndIndex) {
+            continue;
+          }
+        }
+        if (functionIndex >= literalIndex && functionIndex <= literalEndIndex) {
+          functionIndex = -1;
+          continue;
+        }
+      }
     }
     if (functionIndex !== -1) {
       return [index, functionIndex];

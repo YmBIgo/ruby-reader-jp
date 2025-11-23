@@ -1,8 +1,8 @@
 {
-  "name": "ruby-reader",
-  "displayName": "ruby-reader",
+  "name": "ruby-reader-ja",
+  "displayName": "ruby-reader-ja",
   "description": "LLM tool which aim to read large ruby codebase",
-  "version": "1.0.8",
+  "version": "1.0.1",
   "type": "commonjs",
   "icon": "logo.png",
   "engines": {
@@ -15,24 +15,24 @@
   "publisher": "coffeecupjapan",
   "repository": {
     "type": "git",
-    "url": "https://github.com/YmBIgo/ruby-reader"
+    "url": "https://github.com/YmBIgo/ruby-reader-ja"
   },
   "categories": [
     "Other"
   ],
   "activationEvents": [
-    "onCommand:ruby-reader.helloWorld",
-    "onCommand:ruby-reader.openInNewTab"
+    "onCommand:ruby-reader-ja.helloWorld",
+    "onCommand:ruby-reader-ja.openInNewTab"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "ruby-reader.helloWorld",
+        "command": "ruby-reader-ja.helloWorld",
         "title": "Hello World"
       },
       {
-        "command": "ruby-reader.openInNewTab",
+        "command": "ruby-reader-ja.openInNewTab",
         "title": "Open Ruby Reader Tab"
       }
     ],

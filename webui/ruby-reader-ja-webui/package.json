@@ -1,5 +1,5 @@
 {
-  "name": "ruby-reader-webui",
+  "name": "ruby-reader-ja-webui",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,10 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.70.0",
     "@types/vscode-webview": "^1.57.5",
     "@vscode-elements/react-elements": "^1.15.1",
     "clipboard": "^2.0.11",
     "mermaid": "^11.6.0",
+    "openai": "^6.9.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-use": "^17.6.0",

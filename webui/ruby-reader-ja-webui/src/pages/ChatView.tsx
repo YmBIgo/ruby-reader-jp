@@ -17,17 +17,17 @@ const INPUT_PHASE_NUMBER = [0, 1, 2, 6, 8, 9];
 const BACK_PHASE_NUMBER = [1, 2, 3, 6, 7, 8, 9, 10];
 const SHOW_HISTORY_NUMBER = [0, 1, 2, 6, 8, 9];
 const INPUT_PHASE_TEXT = [
-  `Enter "file path you want to search"`, // 0
-  `Next, enter "the first line of the function to search"`, // 1
-  `Next, enter "Purpose"`, // 2
-  `Enter "Start Task" to start to explore.`, // 3
+  "「検索したいファイルパス」を入力してください", // 0
+  "次は「検索したい関数名の１行目」を入力してください", // 1
+  "次は「目的」を入力してください", // 2
+  "タスクを開始する場合は、下の「タスクを開始する」ボタンを押してください", // 3
   "", // 4
   "", // 5
-  "Please enter the file path of the history JSON to start the search.", // 6
-  `Enter "Start Task" to start to explore.`, // 7
-  `Please enter the folder you want to search`, // 8
-  `Please enter the purpose of folder and file search`, // 9
-  `Enter "Start Task" to start to explore.`, // 10
+  "検索を開始する履歴JSONのファイルパスを入力してください", // 6
+  "タスクを開始する場合は、下の「タスクを開始する」ボタンを押してください", // 7
+  "検索したいフォルダのパスを入力してください", //8
+  "フォルダ検索の目的を入力してください", // 9
+  "「タスクを開始する」ボタンを押して探索を開始してください", // 10
 ];
 
 const ChatView: React.FC<ChatViewType> = ({
@@ -60,67 +60,67 @@ const ChatView: React.FC<ChatViewType> = ({
   const [folderPurpose, setFolderPurpose] = useState<string>("");
   const task =
     rootPath && rootFunctionName && purpose
-      ? `File Path you want to search : ${rootPath}
-First line of the function to search: ${rootFunctionName}
-Purpose: ${purpose}`
+      ? `検索したいファイルパス : ${rootPath}
+検索する関数の１行目: ${rootFunctionName}
+目的: ${purpose.slice(0, 100)}...`
       : historyPath
-      ? `Input history path is ${historyPath}`
+      ? `履歴入力のJSONのパス : ${historyPath}`
       : folderPath && folderPurpose
-      ? `Folder Search Path you want to search : ${folderPath}
-Purpose : ${folderPurpose}`
-      : "Task is not started";
+      ? `フォルダ検索のフォルダのパス : ${folderPath}
+目的 : ${folderPurpose.slice(0, 100)}`
+      : "タスクは開始されていません";
 
   const lastMessage = messages[messages.length - 1];
   const [inputText, setInputText] = useState<string>("");
   const primaryButtonText =
     inputPhase === 0
-      ? `Enter "file path you want to search"`
+      ? "検索したいファイルパスを入力"
       : inputPhase === 1
-      ? `Enter "First line of the function to search"`
+      ? "検索する関数の１行目を入力"
       : inputPhase === 2
-      ? "Enter Purpose"
+      ? "目的を入力"
       : inputPhase === 3
-      ? "Start Task"
+      ? "タスクを開始する"
       : inputPhase === 4
-      ? "Select"
+      ? "選択する"
       : inputPhase === 5
       ? "　"
       : inputPhase === 6
-      ? `Enter "the file path of the history"`
+      ? "入力する履歴のファイルパスを入力"
       : inputPhase === 7
-      ? "Start Task"
+      ? "タスクを開始する"
       : inputPhase === 8
-      ? "Enter the folder path you want to search"
+      ? "検索したいフォルダのパスを入力"
       : inputPhase === 9
-      ? "Enter Purpose"
+      ? "目的を入力"
       : inputPhase === 10
-      ? "Start Task"
-      : "Unknown Command";
+      ? "タスクを開始する"
+      : "不明なコマンド";
 
   const secondaryButtonText =
     inputPhase === 0
       ? "　"
       : inputPhase === 1
-      ? "Back"
+      ? "戻る"
       : inputPhase === 2
-      ? "Back"
+      ? "戻る"
       : inputPhase === 3
-      ? "Back"
+      ? "戻る"
       : inputPhase === 4
-      ? "Cancel"
+      ? "キャンセルする"
       : inputPhase === 5
       ? "　"
       : inputPhase === 6
-      ? "Back to Normal Input"
+      ? "通常入力に戻る"
       : inputPhase === 7
-      ? "Back"
+      ? "戻る"
       : inputPhase === 8
-      ? "Back to Normal Input"
+      ? "通常入力に戻る"
       : inputPhase === 9
-      ? "Back"
+      ? "戻る"
       : inputPhase === 10
-      ? "Back"
-      : "Unknown Command";
+      ? "戻る"
+      : "不明なコマンド";
 
   const handleSecondaryButtonClick = () => {
     if (BACK_PHASE_NUMBER.includes(inputPhase)) {
@@ -142,12 +142,12 @@ Purpose : ${folderPurpose}`
           {
             type: "say",
             content:
-              `Please enter the "file path you want to search", the "first line of the function to search," and the "purpose."`,
+              "「検索したいファイルパス」と「検索する関数の１行目」と「目的」を入力してください",
             time: Date.now(),
           },
           {
             type: "say",
-            content: `Enter "file path you want to search"`,
+            content: "「検索したいファイルパス」を入力してください",
             time: Date.now() + 100,
           },
         ]);
@@ -276,7 +276,7 @@ Purpose : ${folderPurpose}`
       ...m,
       {
         type: "user",
-        content: "Enter from history Json",
+        content: "履歴から入力",
         time: Date.now(),
       },
       {
@@ -349,7 +349,7 @@ Purpose : ${folderPurpose}`
         <p style={{ color: "black", margin: "0" }}>
           {task}
           <hr />
-          If the setup has not been completed yet, please complete the setup.
+          まだ設定が完了していなかったら設定を完了させてください
           <br />
           <VscodeButton
             onClick={() => {
@@ -365,18 +365,18 @@ Purpose : ${folderPurpose}`
                 {
                   type: "say",
                   content:
-                    `Please enter the "file path you want to search", the "first line of the function to search", and the "purpose".`,
+                    "「検索したいファイルパス」と「検索する関数の１行目」と「目的」を入力してください",
                   time: Date.now(),
                 },
                 {
                   type: "say",
-                  content: `Enter "file path you want to search"`,
+                  content: "「検索したいファイルパス」を入力してください",
                   time: Date.now() + 100,
                 },
               ]);
             }}
           >
-            Setting Page
+            設定画面
           </VscodeButton>
           <br />
         </p>
@@ -498,7 +498,7 @@ Purpose : ${folderPurpose}`
             onClick={gotoHistoryPhase}
               style={{ width: "150px", margin: "5px 10px" }}
           >
-              Move to history search
+            検索履歴入力
             </VscodeButton>
           }
           {inputPhase !== 8 && inputPhase !== 9 &&
@@ -506,7 +506,7 @@ Purpose : ${folderPurpose}`
               onClick={gotoFolderPhase}
               style={{ width: "150px", margin: "5px 10px" }}
             >
-              Move to folder search
+            フォルダ検索
           </VscodeButton>
           }
         </div>

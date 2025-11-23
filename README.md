@@ -49,7 +49,7 @@ Make sure you’re using version 1.100.0 or later.
 ### 3. Download Ruby Reader for VSCode
 
 Download from the marketplace:
-[https://marketplace.visualstudio.com/items?itemName=coffeecupjapan.ruby-reader\&ssr=false#overview](https://marketplace.visualstudio.com/items?itemName=coffeecupjapan.ruby-reader&ssr=false#overview)
+[https://marketplace.visualstudio.com/items?itemName=coffeecupjapan.ruby-reader-ja\&ssr=false#overview](https://marketplace.visualstudio.com/items?itemName=coffeecupjapan.ruby-reader-ja&ssr=false#overview)
 
 ### 4. Open the Extension
 
@@ -83,28 +83,8 @@ This process repeats as long as you like, allowing you to explore deeper step by
 
 ## Release Notes
 
-#### 1.0.9
+#### 1.0.1
 
-Add Folder Search
-
-#### 1.0.8
-
-Add comment function
-
-#### 1.0.7
-
-Interactively jump when use history run
-
-#### 1.0.6
-
-Impl jump
-
-#### 1.0.5
-
-Save History Data When Jump
-
-#### 1.0.3
-
-Initial release of RubyReader
+Initial release of RubyReader-jp
 
 ---

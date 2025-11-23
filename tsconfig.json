@@ -13,7 +13,8 @@
     "forceConsistentCasingInFileNames": true,
     "noImplicitReturns": true,
     "noImplicitOverride": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "resolveJsonModule": true,
   },
   "exclude": ["node_modules", ".vscode-test", "webui"]
 }

@@ -12,6 +12,7 @@ export type ProcessChoice = {
     functionName: string;
     functionCodeLine: string;
     originalFilePath: string;
+    comment?: string;
 }
 export type ChoiceTree = {
     content: Choice
@@ -29,6 +30,8 @@ export class HistoryHandler {
     private choiceTree: ChoiceTree;
     private currentChoicePosition: ChoicePosition[];
     private visualizeResult: string;
+    // 並列を気にしなければならなくなったら、isFirstSearchFoundを修正する 
+    private isFirstSearchFound: boolean;
     constructor(rootPath: string, rootFunctionName: string, rootFunctionCodeLine: string, rootFunctionContent: string) {
         this.rootPath = rootPath;
         const rootChoice: Choice = {
@@ -44,6 +47,7 @@ export class HistoryHandler {
         };
         this.currentChoicePosition = [{depth: 0, width: 0}];
         this.visualizeResult = "";
+        this.isFirstSearchFound = false;
     }
     overWriteChoiceTree(choiceTree: ChoiceTree) {
         this.choiceTree = choiceTree;
@@ -92,6 +96,7 @@ export class HistoryHandler {
             width: selectIndex
         }];
         this.searchByChoicePositionArray((choiceTree) => {
+            if (!functionCodeContent) return;
             choiceTree.content.functionCodeContent = functionCodeContent;
             choiceTree.content.comment = comment;
         });
@@ -113,12 +118,12 @@ export class HistoryHandler {
         }
         return currentTree;
     }
-    private move(selectedChoicePosition: ChoicePosition[]) {
+    move(selectedChoicePosition: ChoicePosition[]) {
         this.currentChoicePosition = selectedChoicePosition;
     }
     moveById(
         id: string,
-        foundCallback?: (st: ChoiceTree) => void
+        foundCallback?: (st: ChoiceTree, comment: string) => void
     ): Choice | null {
         const searchResult = this.searchTreeById(this.choiceTree, id, 0, 0, [], foundCallback);
         if (!searchResult || !searchResult.pos.length) {
@@ -126,6 +131,7 @@ export class HistoryHandler {
             return null;
         }
         this.move(searchResult.pos);
+        this.isFirstSearchFound = true;
         return searchResult.processChoice;
     }
     getContentFromPos(
@@ -158,7 +164,7 @@ export class HistoryHandler {
         depth: number,
         width: number,
         searchPath: ChoicePosition[],
-        foundCallback?: (st: ChoiceTree) => void,
+        foundCallback?: (st: ChoiceTree, comment: string) => void,
     ): {pos: ChoicePosition[], processChoice: Choice} | null {
         const newSearchPath = [...searchPath, {depth, width}];
         const isSame = searchChoiceTree.content.id.slice(0, 7) === id;
@@ -167,11 +173,13 @@ export class HistoryHandler {
         }
         let res = null;
         searchChoiceTree.children.forEach((st, index) => {
-            const result = this.searchTreeById(st, id, depth+1, index, newSearchPath);
+            const result = this.searchTreeById(st, id, depth+1, index, newSearchPath, foundCallback);
             if (result) {
                 res = result;
-                if (foundCallback) {
-                    foundCallback(st);
+                if (foundCallback && this.isFirstSearchFound) {
+                    console.log("found!", res.processChoice.functionName);
+                    foundCallback(st, res.processChoice.comment ?? "");
+                    this.isFirstSearchFound = false;
                 }
             }
         });
@@ -185,7 +193,7 @@ export class HistoryHandler {
     }
     private printTree(tree: ChoiceTree, prefix: string = "") {
         this.visualizeResult += `${prefix}|${tree.content.functionName}
-${prefix}|${tree.content.id.slice(0, 7)} ${tree.content.comment ? `\n${prefix}  ${tree.content.comment}` : ""}
+${prefix}|${tree.content.id.slice(0, 7)}${tree.content.comment ? `\n${prefix}  ${tree.content.comment.slice(0, 30)}...` : ""}
 
 `;
         for (let child of tree.children) {
@@ -231,5 +239,8 @@ ${functionCode}
     }
     getChoiceTree() {
         return this.choiceTree;
+    }
+    getCurrentChoicePosition() {
+        return this.currentChoicePosition;
     }
 }

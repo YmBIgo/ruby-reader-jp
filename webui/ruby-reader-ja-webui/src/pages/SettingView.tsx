@@ -111,6 +111,7 @@ const SettingView: React.FC<SettingViewType> = ({
     ""
   );
   const [openAIModelList] = useState<string[]>([
+    "gpt-5",
     "gpt-4.1",
     "gpt-4o",
     "gpt-4o-mini",
@@ -130,6 +131,11 @@ const SettingView: React.FC<SettingViewType> = ({
     Anthropic.Model | ""
   >("");
   const [anthropicModelList] = useState<string[]>([
+    "claude-sonnet-4-5",
+    "claude-haiku-4-5",
+    "claude-opus-4-1",
+    "claude-sonnet-4-20250514",
+    "claude-opus-4-20250514",
     "claude-3-7-sonnet-20250219",
     "claude-sonnet-4-20250514",
     "claude-3-5-sonnet-20241022",
@@ -205,9 +211,9 @@ const SettingView: React.FC<SettingViewType> = ({
       }}
       id="settingsContainer"
     >
-      <h3>Settings</h3>
+      <h3>設定</h3>
       <hr />
-      <p>RubyLsp Path</p>
+      <p>RubyLsp のパス</p>
       <VscodeTextfield
         value={rubyLspPath}
         onChange={(e) =>
@@ -219,7 +225,7 @@ const SettingView: React.FC<SettingViewType> = ({
       <br />
       <VscodeButton onClick={updateRubyLspPath}>Save RubyLsp Path</VscodeButton>
       <hr />
-      <p>Ruby Project Path</p>
+      <p>Ruby プロジェクトのパス</p>
       <VscodeTextfield
         value={linuxPath}
         onChange={(e) =>
@@ -231,7 +237,7 @@ const SettingView: React.FC<SettingViewType> = ({
       <br />
       <VscodeButton onClick={updateLinuxPath}>Save Ruby Project Path</VscodeButton>
       <hr />
-      <p>The path to save the report.</p>
+      <p>レポートを保存する先のパス</p>
       <VscodeTextfield
         value={reportPath}
         onChange={(e) =>
@@ -243,7 +249,7 @@ const SettingView: React.FC<SettingViewType> = ({
       <br />
       <VscodeButton onClick={updateReportPath}>Save Report Path</VscodeButton>
       <hr />
-      <p>Choose LLM You want to use (OpenAI / Anthropic / Plamo / Gemini)</p>
+      <p>使用するLLMを選んでください (OpenAI / Anthropic / Plamo / Gemini)</p>
       <VscodeRadioGroup
         onChange={(e) => {
           const value = (e.target as HTMLInputElement)?.value ?? "";
@@ -271,10 +277,10 @@ const SettingView: React.FC<SettingViewType> = ({
       </VscodeButton>
       <hr />
       {llmName === "" ? (
-        <p>Choose LLM</p>
+        <p>LLMを選んでください</p>
       ) : llmName === "openai" ? (
         <>
-          <p>OpenAI API Key</p>
+          <p>OpenAIのAPIキー</p>
           <VscodeTextfield
             value={openAIApiKey}
             type="password"
@@ -289,7 +295,7 @@ const SettingView: React.FC<SettingViewType> = ({
             Save OpenAI API Key
           </VscodeButton>
           <hr />
-          <p>OpenAI Model</p>
+          <p>OpenAIのモデル</p>
           <VscodeSingleSelect
             onChange={(e) => {
               const value = (e.target as HTMLSelectElement).value;
@@ -310,7 +316,7 @@ const SettingView: React.FC<SettingViewType> = ({
         </>
       ) : llmName === "anthropic" ? (
         <>
-          <p>Anthropic API Key</p>
+          <p>AnthropicのAPIキー</p>
           <VscodeTextfield
             value={anthropicApiKey}
             type="password"
@@ -325,7 +331,7 @@ const SettingView: React.FC<SettingViewType> = ({
             Save Anthropic API Key
           </VscodeButton>
           <hr />
-          <p>Anthropic Model</p>
+          <p>Anthropicのモデル</p>
           <VscodeSingleSelect
             onChange={(e) => {
               const value = (e.target as HTMLSelectElement).value;
@@ -346,7 +352,7 @@ const SettingView: React.FC<SettingViewType> = ({
         </>
       ) : llmName === "plamo" ? (
         <>
-          <p>Plamo API Key</p>
+          <p>PlamoのAPIキー</p>
           <VscodeTextfield
             value={plamoApiKey}
             type="password"
@@ -364,7 +370,7 @@ const SettingView: React.FC<SettingViewType> = ({
         </>
       ) : llmName === "gemini" ? (
         <>
-          <p>Gemini API Key</p>
+          <p>GeminiのAPIキー</p>
           <VscodeTextfield
             value={geminiApiKey}
             type="password"
@@ -379,7 +385,7 @@ const SettingView: React.FC<SettingViewType> = ({
             Save Gemini API Key
           </VscodeButton>
           <hr />
-          <p>Gemini Model</p>
+          <p>Geminiのモデル</p>
           <VscodeSingleSelect
             onChange={(e) => {
               const value = (e.target as HTMLSelectElement).value;
@@ -399,10 +405,10 @@ const SettingView: React.FC<SettingViewType> = ({
           <hr />
         </>
       ) : (
-        <p>Unknown LLM</p>
+        <p>不明なLLM</p>
       )}
       <VscodeButton onClick={() => setIsSettingPage(false)}>
-        Back to Chat Page
+        Chatに戻る
       </VscodeButton>
     </div>
   );

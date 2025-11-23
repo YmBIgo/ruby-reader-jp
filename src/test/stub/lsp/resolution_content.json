@@ -1,0 +1,90 @@
+[
+    {
+        "line": 166,
+        "character": 6,
+        "functionName": "resolve",
+        "firstLine": "      def resolve",
+        "functionContent": "      def resolve\n        start_resolution\n\n        while state\n          break if !state.requirement && state.requirements.empty?\n          indicate_progress\n          if state.respond_to?(:pop_possibility_state) # DependencyState\n            debug(depth) { \"Creating possibility state for #{requirement} (#{possibilities.count} remaining)\" }\n            state.pop_possibility_state.tap do |s|\n              if s\n                states.push(s)\n                activated.tag(s)\n              end\n            end\n          end\n          process_topmost_state\n        end\n\n        resolve_activated_specs\n      ensure\n        end_resolution\n      end"
+    },
+    {
+        "line": 265,
+        "character": 6,
+        "queryLine": 252,
+        "queryCharacter": 11,
+        "functionName": "possibility",
+        "firstLine": "      def possibility",
+        "functionContent": "      def possibility\n        possibilities.last\n      end"
+    },
+    {
+        "line": 292,
+        "character": 6,
+        "queryLine": 256,
+        "queryCharacter": 10,
+        "functionName": "unwind_for_conflict",
+        "firstLine": "      def unwind_for_conflict",
+        "functionContent": "      def unwind_for_conflict\n        details_for_unwind = build_details_for_unwind\n        unwind_options = unused_unwind_options\n        debug(depth) { \"Unwinding for conflict: #{requirement} to #{details_for_unwind.state_index / 2}\" }\n        conflicts.tap do |c|\n          sliced_states = states.slice!((details_for_unwind.state_index + 1)..-1)\n          raise_error_unless_state(c)\n          activated.rewind_to(sliced_states.first || :initial_state) if sliced_states\n          state.conflicts = c\n          state.unused_unwind_options = unwind_options\n          filter_possibilities_after_unwind(details_for_unwind)\n          index = states.size - 1\n          @parents_of.each { |_, a| a.reject! { |i| i >= index } }\n          state.unused_unwind_options.reject! { |uw| uw.state_index >= index }\n        end\n      end"
+    },
+    {
+        "line": 278,
+        "character": 6,
+        "queryLine": 209,
+        "queryCharacter": 8,
+        "functionName": "push_initial_state",
+        "firstLine": "      def push_initial_state",
+        "functionContent": "      def push_initial_state\n        graph = DependencyGraph.new.tap do |dg|\n          original_requested.each do |requested|\n            vertex = dg.add_vertex(name_for(requested), nil, true)\n            vertex.explicit_requirements << requested\n          end\n          dg.tag(:initial_state)\n        end\n\n        push_state_for_requirements(original_requested, true, graph)\n      end"
+    },
+    {
+        "line": 359,
+        "character": 6,
+        "queryLine": 324,
+        "queryCharacter": 25,
+        "functionName": "unwind_options_for_requirements",
+        "firstLine": "      def unwind_options_for_requirements(binding_requirements)",
+        "functionContent": "      def unwind_options_for_requirements(binding_requirements)\n        unwind_details = []\n\n        trees = []\n        binding_requirements.reverse_each do |r|\n          partial_tree = [r]\n          trees << partial_tree\n          unwind_details << UnwindDetails.new(-1, nil, partial_tree, binding_requirements, trees, [])\n\n          # If this requirement has alternative possibilities, check if any would\n          # satisfy the other requirements that created this conflict\n          requirement_state = find_state_for(r)\n          if conflict_fixing_possibilities?(requirement_state, binding_requirements)\n            unwind_details << UnwindDetails.new(\n              states.index(requirement_state),\n              r,\n              partial_tree,\n              binding_requirements,\n              trees,\n              []\n            )\n          end\n\n          # Next, look at the parent of this requirement, and check if the requirement\n          # could have been avoided if an alternative PossibilitySet had been chosen\n          parent_r = parent_of(r)\n          next if parent_r.nil?\n          partial_tree.unshift(parent_r)\n          requirement_state = find_state_for(parent_r)\n          if requirement_state.possibilities.any? { |set| !set.dependencies.include?(r) }\n            unwind_details << UnwindDetails.new(\n              states.index(requirement_state),\n              parent_r,\n              partial_tree,\n              binding_requirements,\n              trees,\n              []\n            )\n          end\n\n          # Finally, look at the grandparent and up of this requirement, looking\n          # for any possibilities that wouldn't create their parent requirement\n          grandparent_r = parent_of(parent_r)\n          until grandparent_r.nil?\n            partial_tree.unshift(grandparent_r)\n            requirement_state = find_state_for(grandparent_r)\n            if requirement_state.possibilities.any? { |set| !set.dependencies.include?(parent_r) }\n              unwind_details << UnwindDetails.new(\n                states.index(requirement_state),\n                grandparent_r,\n                partial_tree,\n                binding_requirements,\n                trees,\n                []\n              )\n            end\n            parent_r = grandparent_r\n            grandparent_r = parent_of(parent_r)\n          end\n        end\n\n        unwind_details\n      end"
+    },
+    {
+        "line": 489,
+        "character": 6,
+        "queryLine": 448,
+        "queryCharacter": 10,
+        "functionName": "filter_possibilities_for_parent_unwind",
+        "firstLine": "      def filter_possibilities_for_parent_unwind(unwind_details)",
+        "functionContent": "      def filter_possibilities_for_parent_unwind(unwind_details)\n        unwinds_to_state = unused_unwind_options.select { |uw| uw.state_index == unwind_details.state_index }\n        unwinds_to_state << unwind_details\n\n        primary_unwinds = unwinds_to_state.select(&:unwinding_to_primary_requirement?).uniq\n        parent_unwinds = unwinds_to_state.uniq - primary_unwinds\n\n        allowed_possibility_sets = primary_unwinds.flat_map do |unwind|\n          states[unwind.state_index].possibilities.select do |possibility_set|\n            possibility_set.possibilities.any? do |poss|\n              possibility_satisfies_requirements?(poss, unwind.conflicting_requirements)\n            end\n          end\n        end\n\n        requirements_to_avoid = parent_unwinds.flat_map(&:sub_dependencies_to_avoid)\n\n        state.possibilities.reject! do |possibility_set|\n          !allowed_possibility_sets.include?(possibility_set) &&\n            (requirements_to_avoid - possibility_set.dependencies).empty?\n        end\n      end"
+    },
+    {
+        "line": 515,
+        "character": 6,
+        "queryLine": 323,
+        "queryCharacter": 31,
+        "functionName": "binding_requirements_for_conflict",
+        "firstLine": "      def binding_requirements_for_conflict(conflict)",
+        "functionContent": "      def binding_requirements_for_conflict(conflict)\n        return [conflict.requirement] if conflict.possibility.nil?\n\n        possible_binding_requirements = conflict.requirements.values.flatten(1).uniq\n\n        # When there's a `CircularDependency` error the conflicting requirement\n        # (the one causing the circular) won't be `conflict.requirement`\n        # (which won't be for the right state, because we won't have created it,\n        # because it's circular).\n        # We need to make sure we have that requirement in the conflict's list,\n        # otherwise we won't be able to unwind properly, so we just return all\n        # the requirements for the conflict.\n        return possible_binding_requirements if conflict.underlying_error\n\n        possibilities = search_for(conflict.requirement)\n\n        # If all the requirements together don't filter out all possibilities,\n        # then the only two requirements we need to consider are the initial one\n        # (where the dependency's version was first chosen) and the last\n        if binding_requirement_in_set?(nil, possible_binding_requirements, possibilities)\n          return [conflict.requirement, requirement_for_existing_name(name_for(conflict.requirement))].compact\n        end\n\n        # Loop through the possible binding requirements, removing each one\n        # that doesn't bind. Use a `reverse_each` as we want the earliest set of\n        # binding requirements, and don't use `reject!` as we wish to refine the\n        # array *on each iteration*.\n        binding_requirements = possible_binding_requirements.dup\n        possible_binding_requirements.reverse_each do |req|\n          next if req == conflict.requirement\n          unless binding_requirement_in_set?(req, binding_requirements, possibilities)\n            binding_requirements -= [req]\n          end\n        end\n\n        binding_requirements\n      end"
+    },
+    {
+        "line": 594,
+        "character": 6,
+        "queryLine": 255,
+        "queryCharacter": 10,
+        "functionName": "create_conflict",
+        "firstLine": "      def create_conflict(underlying_error = nil)",
+        "functionContent": "      def create_conflict(underlying_error = nil)\n        vertex = activated.vertex_named(name)\n        locked_requirement = locked_requirement_named(name)\n\n        requirements = {}\n        unless vertex.explicit_requirements.empty?\n          requirements[name_for_explicit_dependency_source] = vertex.explicit_requirements\n        end\n        requirements[name_for_locking_dependency_source] = [locked_requirement] if locked_requirement\n        vertex.incoming_edges.each do |edge|\n          (requirements[edge.origin.payload.latest_version] ||= []).unshift(edge.requirement)\n        end\n\n        activated_by_name = {}\n        activated.each { |v| activated_by_name[v.name] = v.payload.latest_version if v.payload }\n        conflicts[name] = Conflict.new(\n          requirement,\n          requirements,\n          vertex.payload && vertex.payload.latest_version,\n          possibility,\n          locked_requirement,\n          requirement_trees,\n          activated_by_name,\n          underlying_error\n        )\n      end"
+    },
+    {
+        "line": 666,
+        "character": 6,
+        "queryLine": 253,
+        "queryCharacter": 10,
+        "functionName": "attempt_to_activate",
+        "firstLine": "      def attempt_to_activate",
+        "functionContent": "      def attempt_to_activate\n        debug(depth) { 'Attempting to activate ' + possibility.to_s }\n        existing_vertex = activated.vertex_named(name)\n        if existing_vertex.payload\n          debug(depth) { \"Found existing spec (#{existing_vertex.payload})\" }\n          attempt_to_filter_existing_spec(existing_vertex)\n        else\n          latest = possibility.latest_version\n          possibility.possibilities.select! do |possibility|\n            requirement_satisfied_by?(requirement, activated, possibility)\n          end\n          if possibility.latest_version.nil?\n            # ensure there's a possibility for better error messages\n            possibility.possibilities << latest if latest\n            create_conflict\n            unwind_for_conflict\n          else\n            activate_new_spec\n          end\n        end\n      end"
+    },
+    {
+        "line": 772,
+        "character": 6,
+        "queryLine": 760,
+        "queryCharacter": 24,
+        "functionName": "possibilities_for_requirement",
+        "firstLine": "      def possibilities_for_requirement(requirement, activated = self.activated)",
+        "functionContent": "      def possibilities_for_requirement(requirement, activated = self.activated)\n        return [] unless requirement\n        if locked_requirement_named(name_for(requirement))\n          return locked_requirement_possibility_set(requirement, activated)\n        end\n\n        group_possibilities(search_for(requirement))\n      end"
+    }
+]
