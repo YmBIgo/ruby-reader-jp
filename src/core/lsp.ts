@@ -136,8 +136,8 @@ export async function getFileLineAndCharacterFromFunctionName(
   }
   const codeLineRegexp = codeLine === functionName
     ? new RegExp(`\\s${escapeRegExp(codeLine)}[\\s\\(\\)\\{\\|\.]{1}`, "g") // isFirst
-    : new RegExp(`${escapeRegExp(functionName)}`) // !isFirst
-  const functionNameRegexp = new RegExp(`(\\s|::|\.){1}${escapeRegExp(functionName)}[\\s\\(\\)\\{\\|\.]{1}`, "g");
+    : new RegExp(`${isFirst ? "" : `(^|[^0-9^a-z^A-Z^_])`}${escapeRegExp(functionName)}`) // !isFirst
+  const functionNameRegexp = new RegExp(`(\\s|::|\.){1}${escapeRegExp(functionName)}[\\s\\(\\)\\{\\|\.,]{1}`, "g");
   const defClassFunctionRegexp = new RegExp(`\\s(def|class)\\s+${escapeRegExp(functionName)}`, "g");
   let dotAccessFunction = functionName.split(".");
   const dotAccessFunctionName = "." + dotAccessFunction[dotAccessFunction.length - 1];
@@ -146,17 +146,17 @@ export async function getFileLineAndCharacterFromFunctionName(
   let memberAccessFunctionRegexp;
   if (dotAccessFunction.length === 1) {
     const memberAccessFunctionName = "::" + memberAccessFunction[memberAccessFunction.length - 1];
-    memberAccessFunctionRegexp = new RegExp(`${escapeRegExp(memberAccessFunctionName)}[\\s\\(\\)\\{]{1}`, "g");
+    memberAccessFunctionRegexp = new RegExp(`${isFirst ? "" : `(^|[^0-9^a-z^A-Z^_])`}${escapeRegExp(memberAccessFunctionName)}[\\s\\(\\)\\{,]{1}`, "g");
   } else {
     // consider new
     const lastMemberAccessFunctionName = memberAccessFunction[memberAccessFunction.length - 1];
     if (lastMemberAccessFunctionName.match(/\.new($|\s|\()/g)) {
       const lastMemberAccessFunctionNameNewIndex = lastMemberAccessFunctionName.indexOf(".new");
       const lastMemberAccessFunctionNameWithoutNew = lastMemberAccessFunctionName.slice(0, lastMemberAccessFunctionNameNewIndex);
-      memberAccessFunctionRegexp = new RegExp(`${escapeRegExp(lastMemberAccessFunctionNameWithoutNew)}[\\s\\(\\)\\{]{1}`, "g");
+      memberAccessFunctionRegexp = new RegExp(`${isFirst ? "" : `(^|[^0-9^a-z^A-Z^_])`}${escapeRegExp(lastMemberAccessFunctionNameWithoutNew)}[\\s\\(\\)\\{,]{1}`, "g");
       dotAccessFunction = [];
     } else {
-      memberAccessFunctionRegexp = new RegExp(`${escapeRegExp(lastMemberAccessFunctionName)}[\\s\\(\\)\\{]{1}`, "g");
+      memberAccessFunctionRegexp = new RegExp(`${isFirst ? "" : `(^|[^0-9^a-z^A-Z^_])`}${escapeRegExp(lastMemberAccessFunctionName)}[\\s\\(\\)\\{,]{1}`, "g");
     }
   }
   // "posibility and change" や 'possibliity or revolution' 的な「"」「'」対策
@@ -255,6 +255,9 @@ export async function getFileLineAndCharacterFromFunctionName(
       continue;
     }
     let functionIndex = row.search(codeLineRegexp);
+    if (functionIndex !== -1) {
+      console.log("codeLine matched row : ", row, functionIndex);
+    }
     if (dotAccessFunction.length > 1 && !isFirst && functionIndex !== -1) {
       functionIndex = row.search(dotAccessFunctionRegexp);
     } else if (memberAccessFunction.length > 1 && !isFirst && functionIndex !== -1 && memberAccessFunctionRegexp) {

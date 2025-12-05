@@ -44,6 +44,10 @@ ruby-lspのパス、Rubyプロジェクトのルートパス、compile_commands.
 
 ## Release Notes
 
+#### 1.0.5
+
+fix lsp find pos bug
+
 #### 1.0.4
 
 fix reference class found bug

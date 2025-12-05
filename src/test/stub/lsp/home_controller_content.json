@@ -1,0 +1,11 @@
+[
+    {
+        "line": 34,
+        "character": 2,
+        "queryLine": 31,
+        "queryCharacter": 23,
+        "functionName": "home_statuses",
+        "firstLine": "  def home_statuses",
+        "functionContent": "  def home_statuses\n    account_home_feed.get(\n      limit_param(DEFAULT_STATUSES_LIMIT),\n      params[:max_id],\n      params[:since_id],\n      params[:min_id]\n    )\n  end"
+    }
+]

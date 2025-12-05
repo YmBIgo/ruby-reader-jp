@@ -4,6 +4,10 @@ All notable changes to the "ruby-reader-ja" extension will be documented in this
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 1.0.5
+
+- fix lsp find pos bug
+
 ## 1.0.4
 
 - fix reference class found bug
