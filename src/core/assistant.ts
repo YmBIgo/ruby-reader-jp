@@ -1055,9 +1055,12 @@ ${description.ask ? description.ask : "not provided..."}
         const lineNumber = isReference ? i.range?.start?.line : i.targetRange?.start?.line;
         const characterNumber = isReference ? i.range?.start?.character : i.targetRange?.start?.character;
         const lineString = itemContentArray[lineNumber ?? 0].slice(characterNumber - 4, characterNumber);
+        const lineString2 = itemContentArray[lineNumber ?? 0].slice(characterNumber - 6, characterNumber);
         console.log("reference line string : ", lineString);
         if(lineString === "def ") {
-          return true
+          return true;
+        } else if (lineString2 === "class ") {
+          return true;
         } else {
           return false;
         }
