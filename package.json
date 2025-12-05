@@ -2,7 +2,7 @@
   "name": "ruby-reader-ja",
   "displayName": "ruby-reader-ja",
   "description": "LLM tool which aim to read large ruby codebase faster",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "type": "commonjs",
   "icon": "logo.png",
   "engines": {
