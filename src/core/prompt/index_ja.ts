@@ -51,7 +51,7 @@ GitlabのSearch Controllerの中から検索をしているロジックを知り
   end
 \`\`\`
 
-\`\`\`
+\`\`\`ステップ
 1
 検索処理の計測開始
 
@@ -378,7 +378,6 @@ export const searchSymbolSystemPrompt = `あなたは「Rubyコードリーデ�
 - 応答は JSON 形式で行う必要があります。
 
 [例]
-[example]
 
 [
     {id: 100, name: "start_resolution"},

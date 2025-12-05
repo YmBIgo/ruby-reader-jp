@@ -1045,9 +1045,26 @@ ${description.ask ? description.ask : "not provided..."}
       }
     }
     console.log(item);
-    let firstItem = item.filter((i) => {
-      const isUri = isReference ? i.uri?.includes(this.rootPath) : i.targetUri?.includes(this.rootPath);
-      return isUri
+    let firstItem = item.filter(async(i) => {
+      // const isUri = isReference ? i.uri?.includes(this.rootPath) : i.targetUri?.includes(this.rootPath);
+      // return isUri
+      const uri = isReference ? i.uri : i.targetUri;
+      try {
+        const itemContent = await fs.readFile(uri, "utf-8");
+        const itemContentArray = itemContent.split("\n");
+        const lineNumber = isReference ? i.range?.start?.line : i.targetRange?.start?.line;
+        const characterNumber = isReference ? i.range?.start?.character : i.targetRange?.start?.character;
+        const lineString = itemContentArray[lineNumber ?? 0].slice(characterNumber - 4, characterNumber);
+        console.log("reference line string : ", lineString);
+        if(lineString === "def ") {
+          return true
+        } else {
+          return false;
+        }
+      } catch(e) {
+        console.error(e);
+        return false;
+      }
     })?.[0];
     if (!firstItem) {
       // codes are outside the main codebase.
