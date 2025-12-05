@@ -1048,7 +1048,7 @@ ${description.ask ? description.ask : "not provided..."}
     let firstItem = item.filter(async(i) => {
       // const isUri = isReference ? i.uri?.includes(this.rootPath) : i.targetUri?.includes(this.rootPath);
       // return isUri
-      const uri = isReference ? i.uri : i.targetUri;
+      const uri = isReference ? removeFilePrefixFromFilePath(i.uri) : removeFilePrefixFromFilePath(i.targetUri);
       try {
         const itemContent = await fs.readFile(uri, "utf-8");
         const itemContentArray = itemContent.split("\n");
