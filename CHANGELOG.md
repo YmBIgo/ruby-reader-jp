@@ -4,6 +4,10 @@ All notable changes to the "ruby-reader-ja" extension will be documented in this
 
 Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
 
+## 1.0.7
+
+- fix begin bug
+
 ## 1.0.6
 
 - fix lsp reference find file bug

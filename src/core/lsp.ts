@@ -92,7 +92,7 @@ export async function getFunctionContentFromLineAndCharacter(
       
       const lambdaExistsCount = row.match(/^\s*lambda\s/g)?.length ?? 0;
       const whenExistsCount = row.match(/^\s*case\s/g)?.length ?? 0;
-      const beginExistsCount = row.match(/^\s*begin(\s|$)/g)?.length ?? 0;
+      const beginExistsCount = row.match(/(^|=)\s*begin(\s|$)/g)?.length ?? 0;
       if (ifExistsCount > 0 || whileExistsCount > 0 || untilExistsCount > 0 || unlessExistsCount > 0 || lambdaExistsCount > 0 || whenExistsCount > 0 || beginExistsCount > 0) {
         const isReturnExists = row.match(/[\s]*return/g);
         if (!isReturnExists) {
@@ -230,7 +230,7 @@ export async function getFileLineAndCharacterFromFunctionName(
       
       const lambdaExistsCount = row.match(/^\s*lambda\s/g)?.length ?? 0;
       const whenExistsCount = row.match(/^\s*case\s/g)?.length ?? 0;
-      const beginExistsCount = row.match(/^\s*begin(\s|$)/g)?.length ?? 0;
+      const beginExistsCount = row.match(/(^|=)\s*begin(\s|$)/g)?.length ?? 0;
       if (ifExistsCount > 0 || whileExistsCount > 0 || untilExistsCount > 0 || unlessExistsCount > 0 || lambdaExistsCount > 0 || whenExistsCount > 0 || beginExistsCount > 0) {
         const isReturnExists = row.match(/[\s]*return/g);
         if (!isReturnExists) {
